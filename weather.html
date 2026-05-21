@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Weather Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #05070c;
+            --bg-card: #0b111e;
+            --accent: #7c3aed;
+            --accent-glow: rgba(124, 58, 237, 0.15);
+            --text-main: #ffffff;
+            --text-muted: #94a3b8;
+            --font-sans: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: var(--font-sans);
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .weather-container {
+            width: 100%;
+            max-width: 550px;
+            background-color: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 20px;
+            padding: 2.5rem;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Ambient background glow matching portfolio styling */
+        .weather-container::before {
+            content: '';
+            position: absolute;
+            top: -150px;
+            right: -150px;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 0.75rem;
+            margin-bottom: 2.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .search-box input {
+            flex: 1;
+            background-color: rgba(5, 7, 12, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 0.8rem 1.2rem;
+            border-radius: 10px;
+            color: var(--text-main);
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .search-box input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 10px rgba(124, 58, 237, 0.2);
+        }
+
+        .search-box button {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 0 1.2rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .search-box button:hover {
+            background-color: #6d28d9;
+            transform: translateY(-1px);
+        }
+
+        .location-btn {
+            background-color: rgba(255, 255, 255, 0.05) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: var(--text-main) !important;
+        }
+
+        .location-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1) !important;
+            border-color: var(--accent) !important;
+        }
+
+        /* Weather UI Layout panels */
+        .weather-display {
+            display: none; /* Controlled dynamically via JS loop classes */
+            text-align: center;
+            animation: fadeIn 0.5s ease forwards;
+            position: relative;
+            z-index: 1;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .city-name {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .weather-main {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .weather-icon {
+            font-size: 4rem;
+            color: var(--accent);
+        }
+
+        .temperature {
+            font-size: 4rem;
+            font-weight: 800;
+            letter-spacing: -2px;
+        }
+
+        .weather-condition {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            text-transform: capitalize;
+            margin-bottom: 2.5rem;
+            font-weight: 500;
+        }
+
+        /* Grid Metrics Container mapping your card blueprints */
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.25rem;
+        }
+
+        .detail-card {
+            background-color: rgba(5, 7, 12, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.02);
+            border-radius: 12px;
+            padding: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            text-align: left;
+        }
+
+        .detail-card i {
+            font-size: 1.5rem;
+            color: var(--accent);
+            width: 30px;
+            text-align: center;
+        }
+
+        .detail-info h4 {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-bottom: 0.2rem;
+        }
+
+        .detail-info p {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        /* Status message text spaces */
+        .status-msg {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 1rem;
+            padding: 2rem 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="weather-container">
+        <div class="search-box">
+            <input type="text" id="city-input" placeholder="Enter city name....">
+            <button id="search-btn" title="Search City"><i class="fas fa-search"></i></button>
+            <button id="geo-btn" class="location-btn" title="Use Current Location"><i class="fas fa-location-crosshairs"></i></button>
+        </div>
+
+        <div id="status-display" class="status-msg">Detecting your location weather metrics...</div>
+
+        <div id="weather-content" class="weather-display">
+            <h2 id="location-title" class="city-name">--</h2>
+            
+            <div class="weather-main">
+                <i id="condition-icon" class="fas fa-cloud weather-icon"></i>
+                <div id="temp-display" class="temperature">--°C</div>
+            </div>
+            
+            <div id="condition-text" class="weather-condition">--</div>
+
+            <div class="details-grid">
+                <div class="detail-card">
+                    <i class="fas fa-droplet"></i>
+                    <div class="detail-info">
+                        <h4>Humidity</h4>
+                        <p id="humidity-display">--</p>
+                    </div>
+                </div>
+                <div class="detail-card">
+                    <i class="fas fa-wind"></i>
+                    <div class="detail-info">
+                        <h4>Wind Speed</h4>
+                        <p id="wind-display">--</p>
+                    </div>
+                </div>
+                <div class="detail-card">
+                    <i class="fas fa-sun"></i>
+                    <div class="detail-info">
+                        <h4>UV Index</h4>
+                        <p id="uv-display">--</p>
+                    </div>
+                </div>
+                <div class="detail-card">
+                    <i class="fas fa-eye"></i>
+                    <div class="detail-info">
+                        <h4>Visibility</h4>
+                        <p id="vis-display">--</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const cityInput = document.getElementById('city-input');
+        const searchBtn = document.getElementById('search-btn');
+        const geoBtn = document.getElementById('geo-btn');
+        const statusDisplay = document.getElementById('status-display');
+        const weatherContent = document.getElementById('weather-content');
+
+        // WMO Code Translation map to pair weather code outputs with text summaries and icons
+        function interpretWeather(code) {
+            const mappings = {
+                0: { text: "Clear Sky", icon: "fa-sun" },
+                1: { text: "Mainly Clear", icon: "fa-cloud-sun" },
+                2: { text: "Partly Cloudy", icon: "fa-cloud-sun" },
+                3: { text: "Overcast", icon: "fa-cloud" },
+                45: { text: "Foggy", icon: "fa-smog" },
+                48: { text: "Depositing Rime Fog", icon: "fa-smog" },
+                51: { text: "Light Drizzle", icon: "fa-cloud-rain" },
+                53: { text: "Moderate Drizzle", icon: "fa-cloud-rain" },
+                55: { text: "Dense Drizzle", icon: "fa-cloud-rain" },
+                61: { text: "Slight Rain", icon: "fa-cloud-showers-heavy" },
+                63: { text: "Moderate Rain", icon: "fa-cloud-showers-heavy" },
+                65: { text: "Heavy Rain", icon: "fa-reveal-rain" },
+                71: { text: "Slight Snowfall", icon: "fa-snowflake" },
+                73: { text: "Moderate Snowfall", icon: "fa-snowflake" },
+                75: { text: "Heavy Snowfall", icon: "fa-snowflake" },
+                95: { text: "Thunderstorm", icon: "fa-cloud-bolt" }
+            };
+            return mappings[code] || { text: "Unknown Conditions", icon: "fa-cloud" };
+        }
+
+        // Fetch core weather data from Open-Meteo using lat/lon coordinates
+        async function fetchWeatherData(lat, lon, locationName) {
+            try {
+                statusDisplay.style.display = 'block';
+                weatherContent.style.display = 'none';
+                statusDisplay.textContent = "Loading regional atmospherics...";
+
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,visibility,wind_speed_10m,uv_index&timezone=auto`;
+                const response = await fetch(url);
+                
+                if (!response.ok) throw new Error("Metrics delivery failed.");
+                const data = await response.json();
+                
+                renderWeather(data.current, locationName);
+            } catch (err) {
+                statusDisplay.textContent = "Error updating atmosphere maps. Check connection parameters.";
+            }
+        }
+
+        // Handle text forward geocoding using the open-source Open-Meteo Geocoding API
+        async function searchCityWeather() {
+            const query = cityInput.value.trim();
+            if (!query) return;
+
+            try {
+                statusDisplay.style.display = 'block';
+                weatherContent.style.display = 'none';
+                statusDisplay.textContent = `Locating ${query}...`;
+
+                const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(query)}&count=1&language=en&format=json`;
+                const geoRes = await fetch(geoUrl);
+                const geoData = await geoRes.json();
+
+                if (!geoData.results || geoData.results.length === 0) {
+                    statusDisplay.textContent = "City parameters undetected. Refine lookup target name.";
+                    return;
+                }
+
+                const target = geoData.results[0];
+                const cleanName = `${target.name}, ${target.country_code.toUpperCase()}`;
+                fetchWeatherData(target.latitude, target.longitude, cleanName);
+            } catch (err) {
+                statusDisplay.textContent = "Search lookup engine error.";
+            }
+        }
+
+        // Update the user interface with the formatted metrics
+        function renderWeather(current, cityName) {
+            document.getElementById('location-title').textContent = cityName;
+            document.getElementById('temp-display').textContent = `${Math.round(current.temperature_2m)}°C`;
+            
+            const condition = interpretWeather(current.weather_code);
+            document.getElementById('condition-text').textContent = condition.text;
+            
+            // Set context icon structure 
+            const iconEl = document.getElementById('condition-icon');
+            iconEl.className = `fas ${condition.icon} weather-icon`;
+
+            // Core sub-deck mapping definitions
+            document.getElementById('humidity-display').textContent = `${current.relative_humidity_2m}%`;
+            document.getElementById('wind-display').textContent = `${current.wind_speed_10m} km/h`;
+            document.getElementById('uv-display').textContent = current.uv_index !== undefined ? current.uv_index.toFixed(1) : 'N/A';
+            document.getElementById('vis-display').textContent = `${(current.visibility / 1000).toFixed(1)} km`;
+
+            statusDisplay.style.display = 'none';
+            weatherContent.style.display = 'block';
+        }
+
+        // Trigger user device browser Geolocation structural access
+        function triggerGeolocation() {
+            if (navigator.geolocation) {
+                statusDisplay.textContent = "Awaiting device permission authorization...";
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        fetchWeatherData(position.coords.latitude, position.coords.longitude, "Your Location");
+                    },
+                    () => {
+                        statusDisplay.textContent = "Location permission denied. Enter city manually above.";
+                    }
+                );
+            } else {
+                statusDisplay.textContent = "Geolocation is not supported by your browser core.";
+            }
+        }
+
+        // Event Attachment Configurations
+        searchBtn.addEventListener('click', searchCityWeather);
+        cityInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') searchCityWeather(); });
+        geoBtn.addEventListener('click', triggerGeolocation);
+
+        // Run auto-detection on initial page boot
+        window.addEventListener('DOMContentLoaded', triggerGeolocation);
+    </script>
+</body>
+</html>
